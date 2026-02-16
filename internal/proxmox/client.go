@@ -23,6 +23,7 @@ const (
 	ActionReadVM         ActionType = "read_vm"
 	ActionReadInventory  ActionType = "read_inventory"
 	ActionReadTaskStatus ActionType = "read_task_status"
+	ActionReadTasks      ActionType = "read_tasks"
 	ActionStartVM        ActionType = "start_vm"
 	ActionStopVM         ActionType = "stop_vm"
 	ActionSnapshotVM     ActionType = "snapshot_vm"
@@ -203,6 +204,18 @@ func requestSpec(req ActionRequest) (method string, endpoint string, params map[
 			return "", "", nil, err
 		}
 		return http.MethodGet, fmt.Sprintf("/api2/json/nodes/%s/tasks/%s/status", node, url.PathEscape(upid)), nil, nil
+	case ActionReadTasks:
+		node, err := requiredStringParam(req.Params, "node")
+		if err != nil {
+			return "", "", nil, err
+		}
+		query := ""
+		if req.Params != nil {
+			if limit, ok := req.Params["limit"]; ok {
+				query = "?limit=" + url.QueryEscape(fmt.Sprint(limit))
+			}
+		}
+		return http.MethodGet, fmt.Sprintf("/api2/json/nodes/%s/tasks%s", node, query), nil, nil
 	case ActionStartVM:
 		node, vmid, err := parseVMTarget(req.Target, req.Params)
 		if err != nil {

@@ -257,3 +257,27 @@ func TestTaskStatusExecutesReadTaskStatus(t *testing.T) {
 		t.Fatalf("expected read_task_status action, got %q", client.lastReq.Action)
 	}
 }
+
+func TestTasksValidatesQueryParams(t *testing.T) {
+	s := newTestServer(&testClient{})
+	req := newAuthedRequest(http.MethodGet, "/v1/tasks?environment=home", "")
+	rr := httptest.NewRecorder()
+	s.tasks(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for missing node, got %d", rr.Code)
+	}
+}
+
+func TestTasksExecutesReadTasks(t *testing.T) {
+	client := &testClient{}
+	s := newTestServer(client)
+	req := newAuthedRequest(http.MethodGet, "/v1/tasks?environment=home&node=pve&limit=5", "")
+	rr := httptest.NewRecorder()
+	s.tasks(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if client.lastReq.Action != proxmox.ActionReadTasks {
+		t.Fatalf("expected read_tasks action, got %q", client.lastReq.Action)
+	}
+}

@@ -14,6 +14,7 @@ var (
 	vmTargetPattern         = regexp.MustCompile(`^vm/[0-9]+$`)
 	inventoryTargetPattern  = regexp.MustCompile(`^inventory/(all|running)$`)
 	taskStatusTargetPattern = regexp.MustCompile(`^task/status$`)
+	taskListTargetPattern   = regexp.MustCompile(`^task/list$`)
 	storageTargetPattern    = regexp.MustCompile(`^storage/[A-Za-z0-9._:-]+$`)
 	firewallTargetPattern   = regexp.MustCompile(`^firewall/(cluster|node/[A-Za-z0-9._-]+|vm/[0-9]+)$`)
 	approvedByPattern       = regexp.MustCompile(`^[A-Za-z0-9._:@/\-]{3,128}$`)
@@ -36,6 +37,7 @@ func newRequestValidator(cfg config.Config) *requestValidator {
 			proxmox.ActionReadVM:         {},
 			proxmox.ActionReadInventory:  {},
 			proxmox.ActionReadTaskStatus: {},
+			proxmox.ActionReadTasks:      {},
 			proxmox.ActionStartVM:        {},
 			proxmox.ActionStopVM:         {},
 			proxmox.ActionSnapshotVM:     {},
@@ -75,6 +77,10 @@ func (v *requestValidator) ValidateActionRequest(req proxmox.ActionRequest) erro
 
 func validateTargetByAction(action proxmox.ActionType, target string) error {
 	switch action {
+	case proxmox.ActionReadTasks:
+		if !taskListTargetPattern.MatchString(target) {
+			return fmt.Errorf("invalid target for %q: expected task/list", action)
+		}
 	case proxmox.ActionReadTaskStatus:
 		if !taskStatusTargetPattern.MatchString(target) {
 			return fmt.Errorf("invalid target for %q: expected task/status", action)

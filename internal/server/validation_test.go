@@ -45,6 +45,14 @@ func TestValidateActionRequest(t *testing.T) {
 			},
 		},
 		{
+			name: "valid task list target",
+			req: proxmox.ActionRequest{
+				Environment: "home",
+				Action:      proxmox.ActionReadTasks,
+				Target:      "task/list",
+			},
+		},
+		{
 			name: "valid storage target",
 			req: proxmox.ActionRequest{
 				Environment: "home",
@@ -137,6 +145,15 @@ func TestValidateActionRequest(t *testing.T) {
 				Environment: "home",
 				Action:      proxmox.ActionReadTaskStatus,
 				Target:      "task/pve",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid task list target",
+			req: proxmox.ActionRequest{
+				Environment: "home",
+				Action:      proxmox.ActionReadTasks,
+				Target:      "task/all",
 			},
 			wantErr: true,
 		},

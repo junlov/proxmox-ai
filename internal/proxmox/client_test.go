@@ -296,6 +296,38 @@ func TestExecuteReadTaskStatusUsesNodeAndUPIDParams(t *testing.T) {
 	}
 }
 
+func TestExecuteReadTasksUsesNodeAndLimitParams(t *testing.T) {
+	var gotPath, gotMethod string
+	client := newMockClient(t, "tasks-secret", func(r *http.Request) (*http.Response, error) {
+		gotPath = r.URL.RequestURI()
+		gotMethod = r.Method
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`{"data":[{"upid":"UPID:test","status":"running"}]}`)),
+			Header:     make(http.Header),
+		}, nil
+	})
+
+	_, err := client.Execute(ActionRequest{
+		Environment: "home",
+		Action:      ActionReadTasks,
+		Target:      "task/list",
+		Params: map[string]any{
+			"node":  "pve",
+			"limit": 10,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Execute returned error: %v", err)
+	}
+	if gotMethod != http.MethodGet {
+		t.Fatalf("unexpected method: %q", gotMethod)
+	}
+	if gotPath != "/api2/json/nodes/pve/tasks?limit=10" {
+		t.Fatalf("unexpected request URI: %q", gotPath)
+	}
+}
+
 func TestNewAPIClientTLSVerificationEnabled(t *testing.T) {
 	client, err := NewAPIClient(nil)
 	if err != nil {
