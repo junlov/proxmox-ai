@@ -3,16 +3,10 @@
   "audit_log_path": "./data/audit.log",
   "environments": [
     {
-      "name": "home",
-      "base_url": "https://pve-home.local:8006",
+      "name": "pve",
+      "base_url": "https://192.168.1.100:8006",
       "token_id": "root@pam!agent-read",
-      "token_secret_env": "PVE_HOME_TOKEN_SECRET"
-    },
-    {
-      "name": "cloud",
-      "base_url": "https://pve-cloud.example.com:8006",
-      "token_id": "automation@pve!agent-read",
-      "token_secret_env": "PVE_CLOUD_TOKEN_SECRET"
+      "token_secret_env": "PVE_PVE_TOKEN_SECRET"
     }
   ]
 }
