@@ -39,6 +39,7 @@ func (s *Server) Start() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.healthz)
 	mux.HandleFunc("/v1/environments", s.environments)
+	mux.HandleFunc("/v1/inventory", s.inventory)
 	mux.HandleFunc("/v1/actions/plan", s.plan)
 	mux.HandleFunc("/v1/actions/apply", s.apply)
 
@@ -77,6 +78,59 @@ func (s *Server) environments(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"environments": envs})
+}
+
+func (s *Server) inventory(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	actor, ok := s.requireAuth(w, r)
+	if !ok {
+		return
+	}
+
+	environment := strings.TrimSpace(r.URL.Query().Get("environment"))
+	if environment == "" {
+		http.Error(w, "environment query parameter is required", http.StatusBadRequest)
+		return
+	}
+	state := strings.TrimSpace(r.URL.Query().Get("state"))
+	if state == "" {
+		state = "all"
+	}
+
+	target := "inventory/" + state
+	req := proxmox.ActionRequest{
+		Environment: environment,
+		Action:      proxmox.ActionReadInventory,
+		Target:      target,
+		Actor:       actor,
+	}
+	if err := s.validator.ValidateActionRequest(req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if _, handled := s.tryReplayIdempotent(w, r, req); handled {
+		return
+	}
+
+	planResp, err := s.runner.Plan(req)
+	if err != nil {
+		s.writeAndStoreError(w, r, req, http.StatusBadRequest, err.Error())
+		return
+	}
+	applyResp, err := s.runner.Apply(req)
+	if err != nil {
+		s.writeAndStoreError(w, r, req, http.StatusForbidden, err.Error())
+		return
+	}
+
+	s.writeAndStoreJSON(w, r, req, http.StatusOK, map[string]any{
+		"request": req,
+		"plan":    planResp.Decision,
+		"result":  applyResp.Result,
+	})
 }
 
 func (s *Server) plan(w http.ResponseWriter, r *http.Request) {

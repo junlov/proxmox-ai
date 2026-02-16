@@ -11,11 +11,12 @@ import (
 )
 
 var (
-	vmTargetPattern       = regexp.MustCompile(`^vm/[0-9]+$`)
-	storageTargetPattern  = regexp.MustCompile(`^storage/[A-Za-z0-9._:-]+$`)
-	firewallTargetPattern = regexp.MustCompile(`^firewall/(cluster|node/[A-Za-z0-9._-]+|vm/[0-9]+)$`)
-	approvedByPattern     = regexp.MustCompile(`^[A-Za-z0-9._:@/\-]{3,128}$`)
-	approvalTicketPattern = regexp.MustCompile(`^[A-Za-z0-9._:\-]{3,128}$`)
+	vmTargetPattern        = regexp.MustCompile(`^vm/[0-9]+$`)
+	inventoryTargetPattern = regexp.MustCompile(`^inventory/(all|running)$`)
+	storageTargetPattern   = regexp.MustCompile(`^storage/[A-Za-z0-9._:-]+$`)
+	firewallTargetPattern  = regexp.MustCompile(`^firewall/(cluster|node/[A-Za-z0-9._-]+|vm/[0-9]+)$`)
+	approvedByPattern      = regexp.MustCompile(`^[A-Za-z0-9._:@/\-]{3,128}$`)
+	approvalTicketPattern  = regexp.MustCompile(`^[A-Za-z0-9._:\-]{3,128}$`)
 )
 
 type requestValidator struct {
@@ -31,14 +32,15 @@ func newRequestValidator(cfg config.Config) *requestValidator {
 	return &requestValidator{
 		environments: envs,
 		actions: map[proxmox.ActionType]struct{}{
-			proxmox.ActionReadVM:       {},
-			proxmox.ActionStartVM:      {},
-			proxmox.ActionStopVM:       {},
-			proxmox.ActionSnapshotVM:   {},
-			proxmox.ActionMigrateVM:    {},
-			proxmox.ActionDeleteVM:     {},
-			proxmox.ActionStorageEdit:  {},
-			proxmox.ActionFirewallEdit: {},
+			proxmox.ActionReadVM:        {},
+			proxmox.ActionReadInventory: {},
+			proxmox.ActionStartVM:       {},
+			proxmox.ActionStopVM:        {},
+			proxmox.ActionSnapshotVM:    {},
+			proxmox.ActionMigrateVM:     {},
+			proxmox.ActionDeleteVM:      {},
+			proxmox.ActionStorageEdit:   {},
+			proxmox.ActionFirewallEdit:  {},
 		},
 	}
 }
@@ -70,6 +72,10 @@ func (v *requestValidator) ValidateActionRequest(req proxmox.ActionRequest) erro
 
 func validateTargetByAction(action proxmox.ActionType, target string) error {
 	switch action {
+	case proxmox.ActionReadInventory:
+		if !inventoryTargetPattern.MatchString(target) {
+			return fmt.Errorf("invalid target for %q: expected inventory/all or inventory/running", action)
+		}
 	case proxmox.ActionReadVM,
 		proxmox.ActionStartVM,
 		proxmox.ActionStopVM,

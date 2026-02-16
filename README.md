@@ -4,7 +4,7 @@ A Go control-plane service for managing multiple Proxmox VE environments (home +
 
 ## Runtime model
 
-- `pi agent` is the primary orchestration runtime.
+- Any orchestration agent/runtime can call this service.
 - `proxmox-agent` is the execution and policy boundary for Proxmox actions.
 - State-changing operations must follow `plan` -> approval (if required) -> `apply`.
 - High-risk apply requests must include explicit approver identity (`approved_by`).
@@ -26,14 +26,49 @@ go run ./cmd/proxmox-agent --config ./config.example.json
 In another terminal:
 
 ```bash
+export PROXMOX_AGENT_API_TOKEN='change-me'
 curl -s localhost:8080/healthz | jq
-curl -s localhost:8080/v1/environments | jq
+curl -s -H "Authorization: Bearer $PROXMOX_AGENT_API_TOKEN" localhost:8080/v1/environments | jq
+```
+
+## Read-only inventory (VM + LXC)
+
+Simple endpoint (plan + apply handled server-side):
+
+```bash
+curl -s \
+  -H "Authorization: Bearer $PROXMOX_AGENT_API_TOKEN" \
+  -H "X-Actor-ID: local-operator" \
+  "localhost:8080/v1/inventory?environment=home&state=running" | jq
+```
+
+List all VM/LXC resources in an environment:
+
+```bash
+curl -s \
+  -H "Authorization: Bearer $PROXMOX_AGENT_API_TOKEN" \
+  -H "X-Actor-ID: local-operator" \
+  -H "Content-Type: application/json" \
+  -d '{"environment":"home","action":"read_inventory","target":"inventory/all"}' \
+  localhost:8080/v1/actions/apply | jq
+```
+
+List only running VM/LXC resources:
+
+```bash
+curl -s \
+  -H "Authorization: Bearer $PROXMOX_AGENT_API_TOKEN" \
+  -H "X-Actor-ID: local-operator" \
+  -H "Content-Type: application/json" \
+  -d '{"environment":"home","action":"read_inventory","target":"inventory/running"}' \
+  localhost:8080/v1/actions/apply | jq
 ```
 
 ## API (MVP)
 
 - `GET /healthz`
 - `GET /v1/environments`
+- `GET /v1/inventory?environment=<name>&state=<all|running>`
 - `POST /v1/actions/plan`
 - `POST /v1/actions/apply`
 

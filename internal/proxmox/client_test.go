@@ -143,6 +143,45 @@ func TestExecuteReadVMRetriesOnTransientErrors(t *testing.T) {
 	}
 }
 
+func TestExecuteReadInventoryReturnsOnlyRunningWhenRequested(t *testing.T) {
+	var gotPath, gotMethod string
+	client := newMockClient(t, "inventory-secret", func(r *http.Request) (*http.Response, error) {
+		gotPath = r.URL.Path
+		gotMethod = r.Method
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`{"data":[{"vmid":100,"name":"web","type":"qemu","status":"running"},{"vmid":200,"name":"batch","type":"lxc","status":"stopped"},{"vmid":300,"name":"api","type":"lxc","status":"running"}]}`)),
+			Header:     make(http.Header),
+		}, nil
+	})
+
+	t.Setenv("PVE_TEST_SECRET", "inventory-secret")
+	result, err := client.Execute(ActionRequest{
+		Environment: "home",
+		Action:      ActionReadInventory,
+		Target:      "inventory/running",
+	})
+	if err != nil {
+		t.Fatalf("Execute returned error: %v", err)
+	}
+	if gotPath != "/api2/json/cluster/resources" {
+		t.Fatalf("unexpected path: %q", gotPath)
+	}
+	if gotMethod != http.MethodGet {
+		t.Fatalf("unexpected method: %q", gotMethod)
+	}
+	if result.Status != "ok" {
+		t.Fatalf("unexpected status: %q", result.Status)
+	}
+	items, ok := result.Data.([]any)
+	if !ok {
+		t.Fatalf("expected []any data, got %T", result.Data)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 running resources, got %d", len(items))
+	}
+}
+
 func TestNewAPIClientTLSVerificationEnabled(t *testing.T) {
 	client, err := NewAPIClient(nil)
 	if err != nil {

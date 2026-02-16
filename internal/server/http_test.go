@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,12 +15,20 @@ import (
 )
 
 type testClient struct {
-	calls int32
+	calls   int32
+	lastReq proxmox.ActionRequest
 }
 
 func (c *testClient) Execute(req proxmox.ActionRequest) (proxmox.ActionResult, error) {
 	atomic.AddInt32(&c.calls, 1)
-	return proxmox.ActionResult{Status: "accepted", Message: "ok"}, nil
+	c.lastReq = req
+	return proxmox.ActionResult{
+		Status:  "ok",
+		Message: "inventory retrieved from Proxmox API",
+		Data: []map[string]any{
+			{"vmid": 101, "type": "qemu", "status": "running"},
+		},
+	}, nil
 }
 
 func newTestServer(client proxmox.Client) *Server {
@@ -155,5 +164,68 @@ func TestPlanRequiresBearerAuth(t *testing.T) {
 
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401 for missing auth, got %d", rr.Code)
+	}
+}
+
+func TestInventoryRequiresBearerAuth(t *testing.T) {
+	s := newTestServer(&testClient{})
+	req := httptest.NewRequest(http.MethodGet, "/v1/inventory?environment=home&state=running", nil)
+	rr := httptest.NewRecorder()
+
+	s.inventory(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for missing auth, got %d", rr.Code)
+	}
+}
+
+func TestInventoryValidatesQueryParams(t *testing.T) {
+	s := newTestServer(&testClient{})
+
+	reqMissingEnv := newAuthedRequest(http.MethodGet, "/v1/inventory?state=running", "")
+	rrMissingEnv := httptest.NewRecorder()
+	s.inventory(rrMissingEnv, reqMissingEnv)
+	if rrMissingEnv.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for missing environment, got %d", rrMissingEnv.Code)
+	}
+
+	reqBadState := newAuthedRequest(http.MethodGet, "/v1/inventory?environment=home&state=active", "")
+	rrBadState := httptest.NewRecorder()
+	s.inventory(rrBadState, reqBadState)
+	if rrBadState.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid state, got %d", rrBadState.Code)
+	}
+}
+
+func TestInventoryReturnsDataAndExecutesReadInventory(t *testing.T) {
+	client := &testClient{}
+	s := newTestServer(client)
+
+	req := newAuthedRequest(http.MethodGet, "/v1/inventory?environment=home&state=running", "")
+	rr := httptest.NewRecorder()
+	s.inventory(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if got := atomic.LoadInt32(&client.calls); got != 1 {
+		t.Fatalf("expected one execute call, got %d", got)
+	}
+	if client.lastReq.Action != proxmox.ActionReadInventory {
+		t.Fatalf("expected action read_inventory, got %q", client.lastReq.Action)
+	}
+	if client.lastReq.Target != "inventory/running" {
+		t.Fatalf("expected target inventory/running, got %q", client.lastReq.Target)
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response JSON: %v", err)
+	}
+	if _, ok := body["result"]; !ok {
+		t.Fatalf("expected response to include result field")
+	}
+	if _, ok := body["plan"]; !ok {
+		t.Fatalf("expected response to include plan field")
 	}
 }

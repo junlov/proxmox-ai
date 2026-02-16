@@ -20,14 +20,15 @@ import (
 type ActionType string
 
 const (
-	ActionReadVM       ActionType = "read_vm"
-	ActionStartVM      ActionType = "start_vm"
-	ActionStopVM       ActionType = "stop_vm"
-	ActionSnapshotVM   ActionType = "snapshot_vm"
-	ActionMigrateVM    ActionType = "migrate_vm"
-	ActionDeleteVM     ActionType = "delete_vm"
-	ActionStorageEdit  ActionType = "storage_edit"
-	ActionFirewallEdit ActionType = "firewall_edit"
+	ActionReadVM        ActionType = "read_vm"
+	ActionReadInventory ActionType = "read_inventory"
+	ActionStartVM       ActionType = "start_vm"
+	ActionStopVM        ActionType = "stop_vm"
+	ActionSnapshotVM    ActionType = "snapshot_vm"
+	ActionMigrateVM     ActionType = "migrate_vm"
+	ActionDeleteVM      ActionType = "delete_vm"
+	ActionStorageEdit   ActionType = "storage_edit"
+	ActionFirewallEdit  ActionType = "firewall_edit"
 )
 
 type ActionRequest struct {
@@ -46,6 +47,7 @@ type ActionRequest struct {
 type ActionResult struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
 }
 
 type Client interface {
@@ -153,15 +155,27 @@ func (c *APIClient) Execute(req ActionRequest) (ActionResult, error) {
 
 	status := "accepted"
 	message := "request accepted by Proxmox API"
+	var data any
 	if req.Action == ActionReadVM {
 		status = "ok"
 		message = "vm state retrieved from Proxmox API"
+	}
+	if req.Action == ActionReadInventory {
+		status = "ok"
+		message = "inventory retrieved from Proxmox API"
+		filtered, err := filterInventoryByTarget(req.Target, envelope.Data)
+		if err != nil {
+			return ActionResult{}, err
+		}
+		data = filtered
+	} else {
+		data = envelope.Data
 	}
 	if taskID, ok := envelope.Data.(string); ok && taskID != "" {
 		message = taskID
 	}
 
-	return ActionResult{Status: status, Message: message}, nil
+	return ActionResult{Status: status, Message: message, Data: data}, nil
 }
 
 func requestSpec(req ActionRequest) (method string, endpoint string, params map[string]any, err error) {
@@ -172,6 +186,11 @@ func requestSpec(req ActionRequest) (method string, endpoint string, params map[
 			return "", "", nil, err
 		}
 		return http.MethodGet, fmt.Sprintf("/api2/json/nodes/%s/qemu/%s/status/current", node, vmid), nil, nil
+	case ActionReadInventory:
+		if err := validateInventoryTarget(req.Target); err != nil {
+			return "", "", nil, err
+		}
+		return http.MethodGet, "/api2/json/cluster/resources?type=vm", nil, nil
 	case ActionStartVM:
 		node, vmid, err := parseVMTarget(req.Target)
 		if err != nil {
@@ -211,6 +230,37 @@ func requestSpec(req ActionRequest) (method string, endpoint string, params map[
 	default:
 		return "", "", nil, fmt.Errorf("unsupported action %q", req.Action)
 	}
+}
+
+func validateInventoryTarget(target string) error {
+	switch strings.TrimSpace(target) {
+	case "inventory/all", "inventory/running":
+		return nil
+	default:
+		return fmt.Errorf(`invalid inventory target %q; expected "inventory/all" or "inventory/running"`, target)
+	}
+}
+
+func filterInventoryByTarget(target string, data any) (any, error) {
+	if strings.TrimSpace(target) != "inventory/running" {
+		return data, nil
+	}
+	items, ok := data.([]any)
+	if !ok {
+		return nil, errors.New("unexpected inventory response format")
+	}
+	filtered := make([]any, 0, len(items))
+	for _, item := range items {
+		resource, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		status, _ := resource["status"].(string)
+		if strings.EqualFold(status, "running") {
+			filtered = append(filtered, resource)
+		}
+	}
+	return filtered, nil
 }
 
 func customEndpointSpec(params map[string]any, defaultMethod string) (endpoint string, method string, body map[string]any, err error) {
