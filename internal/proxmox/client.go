@@ -22,6 +22,7 @@ type ActionType string
 const (
 	ActionReadVM         ActionType = "read_vm"
 	ActionReadInventory  ActionType = "read_inventory"
+	ActionReadNodes      ActionType = "read_nodes"
 	ActionReadTaskStatus ActionType = "read_task_status"
 	ActionReadTasks      ActionType = "read_tasks"
 	ActionStartVM        ActionType = "start_vm"
@@ -194,6 +195,11 @@ func requestSpec(req ActionRequest) (method string, endpoint string, params map[
 			return "", "", nil, err
 		}
 		return http.MethodGet, "/api2/json/cluster/resources?type=vm", nil, nil
+	case ActionReadNodes:
+		if strings.TrimSpace(req.Target) != "nodes/all" {
+			return "", "", nil, fmt.Errorf(`invalid nodes target %q; expected "nodes/all"`, req.Target)
+		}
+		return http.MethodGet, "/api2/json/cluster/resources?type=node", nil, nil
 	case ActionReadTaskStatus:
 		node, err := requiredStringParam(req.Params, "node")
 		if err != nil {

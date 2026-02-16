@@ -13,6 +13,7 @@ import (
 var (
 	vmTargetPattern         = regexp.MustCompile(`^vm/[0-9]+$`)
 	inventoryTargetPattern  = regexp.MustCompile(`^inventory/(all|running)$`)
+	nodesTargetPattern      = regexp.MustCompile(`^nodes/all$`)
 	taskStatusTargetPattern = regexp.MustCompile(`^task/status$`)
 	taskListTargetPattern   = regexp.MustCompile(`^task/list$`)
 	storageTargetPattern    = regexp.MustCompile(`^storage/[A-Za-z0-9._:-]+$`)
@@ -36,6 +37,7 @@ func newRequestValidator(cfg config.Config) *requestValidator {
 		actions: map[proxmox.ActionType]struct{}{
 			proxmox.ActionReadVM:         {},
 			proxmox.ActionReadInventory:  {},
+			proxmox.ActionReadNodes:      {},
 			proxmox.ActionReadTaskStatus: {},
 			proxmox.ActionReadTasks:      {},
 			proxmox.ActionStartVM:        {},
@@ -77,6 +79,10 @@ func (v *requestValidator) ValidateActionRequest(req proxmox.ActionRequest) erro
 
 func validateTargetByAction(action proxmox.ActionType, target string) error {
 	switch action {
+	case proxmox.ActionReadNodes:
+		if !nodesTargetPattern.MatchString(target) {
+			return fmt.Errorf("invalid target for %q: expected nodes/all", action)
+		}
 	case proxmox.ActionReadTasks:
 		if !taskListTargetPattern.MatchString(target) {
 			return fmt.Errorf("invalid target for %q: expected task/list", action)
