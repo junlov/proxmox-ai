@@ -1,0 +1,18 @@
+{
+  "listen_addr": ":8080",
+  "audit_log_path": "./data/audit.log",
+  "environments": [
+    {
+      "name": "home",
+      "base_url": "https://pve-home.local:8006",
+      "token_id": "root@pam!agent-read",
+      "token_secret_env": "PVE_HOME_TOKEN_SECRET"
+    },
+    {
+      "name": "cloud",
+      "base_url": "https://pve-cloud.example.com:8006",
+      "token_id": "automation@pve!agent-read",
+      "token_secret_env": "PVE_CLOUD_TOKEN_SECRET"
+    }
+  ]
+}

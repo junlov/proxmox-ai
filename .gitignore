@@ -1,0 +1,15 @@
+/bin/
+/dist/
+*.log
+.env
+.DS_Store
+
+# bv (beads viewer) local config and caches
+.bv/
+
+# beads issue tracker data
+.beads/
+.ntm/
+.tmp/
+.vscode/
+.claude/
