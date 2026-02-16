@@ -281,3 +281,30 @@ func TestTasksExecutesReadTasks(t *testing.T) {
 		t.Fatalf("expected read_tasks action, got %q", client.lastReq.Action)
 	}
 }
+
+func TestVMStatusValidatesQueryParams(t *testing.T) {
+	s := newTestServer(&testClient{})
+	req := newAuthedRequest(http.MethodGet, "/v1/vm/status?environment=home&node=pve", "")
+	rr := httptest.NewRecorder()
+	s.vmStatus(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for missing vmid, got %d", rr.Code)
+	}
+}
+
+func TestVMStatusExecutesReadVM(t *testing.T) {
+	client := &testClient{}
+	s := newTestServer(client)
+	req := newAuthedRequest(http.MethodGet, "/v1/vm/status?environment=home&node=pve&vmid=101", "")
+	rr := httptest.NewRecorder()
+	s.vmStatus(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if client.lastReq.Action != proxmox.ActionReadVM {
+		t.Fatalf("expected read_vm action, got %q", client.lastReq.Action)
+	}
+	if client.lastReq.Target != "vm/101" {
+		t.Fatalf("unexpected target: %q", client.lastReq.Target)
+	}
+}
