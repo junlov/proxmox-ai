@@ -20,16 +20,17 @@ import (
 type ActionType string
 
 const (
-	ActionReadVM        ActionType = "read_vm"
-	ActionReadInventory ActionType = "read_inventory"
-	ActionStartVM       ActionType = "start_vm"
-	ActionStopVM        ActionType = "stop_vm"
-	ActionSnapshotVM    ActionType = "snapshot_vm"
-	ActionCloneVM       ActionType = "clone_vm"
-	ActionMigrateVM     ActionType = "migrate_vm"
-	ActionDeleteVM      ActionType = "delete_vm"
-	ActionStorageEdit   ActionType = "storage_edit"
-	ActionFirewallEdit  ActionType = "firewall_edit"
+	ActionReadVM         ActionType = "read_vm"
+	ActionReadInventory  ActionType = "read_inventory"
+	ActionReadTaskStatus ActionType = "read_task_status"
+	ActionStartVM        ActionType = "start_vm"
+	ActionStopVM         ActionType = "stop_vm"
+	ActionSnapshotVM     ActionType = "snapshot_vm"
+	ActionCloneVM        ActionType = "clone_vm"
+	ActionMigrateVM      ActionType = "migrate_vm"
+	ActionDeleteVM       ActionType = "delete_vm"
+	ActionStorageEdit    ActionType = "storage_edit"
+	ActionFirewallEdit   ActionType = "firewall_edit"
 )
 
 type ActionRequest struct {
@@ -192,6 +193,16 @@ func requestSpec(req ActionRequest) (method string, endpoint string, params map[
 			return "", "", nil, err
 		}
 		return http.MethodGet, "/api2/json/cluster/resources?type=vm", nil, nil
+	case ActionReadTaskStatus:
+		node, err := requiredStringParam(req.Params, "node")
+		if err != nil {
+			return "", "", nil, err
+		}
+		upid, err := requiredStringParam(req.Params, "upid")
+		if err != nil {
+			return "", "", nil, err
+		}
+		return http.MethodGet, fmt.Sprintf("/api2/json/nodes/%s/tasks/%s/status", node, url.PathEscape(upid)), nil, nil
 	case ActionStartVM:
 		node, vmid, err := parseVMTarget(req.Target, req.Params)
 		if err != nil {
@@ -287,6 +298,17 @@ func normalizeCloneParams(params map[string]any) map[string]any {
 		}
 	}
 	return out
+}
+
+func requiredStringParam(params map[string]any, key string) (string, error) {
+	if params == nil {
+		return "", fmt.Errorf("params.%s is required", key)
+	}
+	v, ok := params[key].(string)
+	if !ok || strings.TrimSpace(v) == "" {
+		return "", fmt.Errorf("params.%s is required", key)
+	}
+	return strings.TrimSpace(v), nil
 }
 
 func customEndpointSpec(params map[string]any, defaultMethod string) (endpoint string, method string, body map[string]any, err error) {

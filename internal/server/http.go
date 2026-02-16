@@ -40,6 +40,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/healthz", s.healthz)
 	mux.HandleFunc("/v1/environments", s.environments)
 	mux.HandleFunc("/v1/inventory", s.inventory)
+	mux.HandleFunc("/v1/tasks/status", s.taskStatus)
 	mux.HandleFunc("/v1/actions/plan", s.plan)
 	mux.HandleFunc("/v1/actions/apply", s.apply)
 
@@ -106,6 +107,59 @@ func (s *Server) inventory(w http.ResponseWriter, r *http.Request) {
 		Action:      proxmox.ActionReadInventory,
 		Target:      target,
 		Actor:       actor,
+	}
+	if err := s.validator.ValidateActionRequest(req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if _, handled := s.tryReplayIdempotent(w, r, req); handled {
+		return
+	}
+
+	planResp, err := s.runner.Plan(req)
+	if err != nil {
+		s.writeAndStoreError(w, r, req, http.StatusBadRequest, err.Error())
+		return
+	}
+	applyResp, err := s.runner.Apply(req)
+	if err != nil {
+		s.writeAndStoreError(w, r, req, http.StatusForbidden, err.Error())
+		return
+	}
+
+	s.writeAndStoreJSON(w, r, req, http.StatusOK, map[string]any{
+		"request": req,
+		"plan":    planResp.Decision,
+		"result":  applyResp.Result,
+	})
+}
+
+func (s *Server) taskStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	actor, ok := s.requireAuth(w, r)
+	if !ok {
+		return
+	}
+	environment := strings.TrimSpace(r.URL.Query().Get("environment"))
+	node := strings.TrimSpace(r.URL.Query().Get("node"))
+	upid := strings.TrimSpace(r.URL.Query().Get("upid"))
+	if environment == "" || node == "" || upid == "" {
+		http.Error(w, "environment, node, and upid query parameters are required", http.StatusBadRequest)
+		return
+	}
+
+	req := proxmox.ActionRequest{
+		Environment: environment,
+		Action:      proxmox.ActionReadTaskStatus,
+		Target:      "task/status",
+		Params: map[string]any{
+			"node": node,
+			"upid": upid,
+		},
+		Actor: actor,
 	}
 	if err := s.validator.ValidateActionRequest(req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

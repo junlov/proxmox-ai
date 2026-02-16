@@ -261,6 +261,41 @@ func TestExecuteCloneVMSendsCloneEndpoint(t *testing.T) {
 	}
 }
 
+func TestExecuteReadTaskStatusUsesNodeAndUPIDParams(t *testing.T) {
+	var gotPath, gotMethod string
+	client := newMockClient(t, "task-secret", func(r *http.Request) (*http.Response, error) {
+		gotPath = r.URL.Path
+		gotMethod = r.Method
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`{"data":{"status":"stopped","exitstatus":"OK"}}`)),
+			Header:     make(http.Header),
+		}, nil
+	})
+
+	result, err := client.Execute(ActionRequest{
+		Environment: "home",
+		Action:      ActionReadTaskStatus,
+		Target:      "task/status",
+		Params: map[string]any{
+			"node": "pve",
+			"upid": "UPID:pve:00000001:00000002:abc:qmsnapshot:103:root@pam!agent-read:",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Execute returned error: %v", err)
+	}
+	if gotMethod != http.MethodGet {
+		t.Fatalf("unexpected method: %q", gotMethod)
+	}
+	if !strings.Contains(gotPath, "/api2/json/nodes/pve/tasks/") || !strings.Contains(gotPath, "/status") {
+		t.Fatalf("unexpected path: %q", gotPath)
+	}
+	if result.Status != "accepted" {
+		t.Fatalf("unexpected status: %q", result.Status)
+	}
+}
+
 func TestNewAPIClientTLSVerificationEnabled(t *testing.T) {
 	client, err := NewAPIClient(nil)
 	if err != nil {

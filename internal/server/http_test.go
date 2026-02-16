@@ -229,3 +229,31 @@ func TestInventoryReturnsDataAndExecutesReadInventory(t *testing.T) {
 		t.Fatalf("expected response to include plan field")
 	}
 }
+
+func TestTaskStatusValidatesQueryParams(t *testing.T) {
+	s := newTestServer(&testClient{})
+
+	req := newAuthedRequest(http.MethodGet, "/v1/tasks/status?environment=home&node=pve", "")
+	rr := httptest.NewRecorder()
+	s.taskStatus(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for missing upid, got %d", rr.Code)
+	}
+}
+
+func TestTaskStatusExecutesReadTaskStatus(t *testing.T) {
+	client := &testClient{}
+	s := newTestServer(client)
+
+	req := newAuthedRequest(http.MethodGet, "/v1/tasks/status?environment=home&node=pve&upid=UPID:test", "")
+	rr := httptest.NewRecorder()
+	s.taskStatus(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if client.lastReq.Action != proxmox.ActionReadTaskStatus {
+		t.Fatalf("expected read_task_status action, got %q", client.lastReq.Action)
+	}
+}
