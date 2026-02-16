@@ -16,6 +16,7 @@ Define stable action names and semantics shared by `pi agent`, API clients, and 
 - `vm.start`
 - `vm.stop`
 - `vm.snapshot.create`
+- `vm.clone`
 - `vm.migrate`
 - `vm.delete`
 - `storage.edit`
@@ -24,7 +25,7 @@ Define stable action names and semantics shared by `pi agent`, API clients, and 
 ## Risk mapping baseline
 
 - Low: `vm.read`
-- Medium: `vm.start`, `vm.stop`, `vm.snapshot.create`
+- Medium: `vm.start`, `vm.stop`, `vm.snapshot.create`, `vm.clone`
 - High: `vm.migrate`, `vm.delete`, `storage.edit`, `firewall.edit`
 
 High-risk actions require explicit approval metadata before apply.
@@ -35,6 +36,7 @@ High-risk actions require explicit approval metadata before apply.
 - `start_vm` -> `vm.start`
 - `stop_vm` -> `vm.stop`
 - `snapshot_vm` -> `vm.snapshot.create`
+- `clone_vm` -> `vm.clone`
 - `migrate_vm` -> `vm.migrate`
 - `delete_vm` -> `vm.delete`
 - `storage_edit` -> `storage.edit`

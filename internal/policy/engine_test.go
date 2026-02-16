@@ -41,6 +41,18 @@ func TestEvaluateRiskAndApprovalMappingTableDriven(t *testing.T) {
 			wantAllowedApply: true,
 		},
 		{
+			name: "clone vm medium risk",
+			req: proxmox.ActionRequest{
+				Environment: "home",
+				Action:      proxmox.ActionCloneVM,
+				Target:      "vm/103",
+			},
+			wantRisk:         "medium",
+			wantApproval:     false,
+			wantAllowedPlan:  true,
+			wantAllowedApply: true,
+		},
+		{
 			name: "stop vm medium risk requires approval on apply",
 			req: proxmox.ActionRequest{
 				Environment: "home",

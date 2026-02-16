@@ -25,6 +25,7 @@ const (
 	ActionStartVM       ActionType = "start_vm"
 	ActionStopVM        ActionType = "stop_vm"
 	ActionSnapshotVM    ActionType = "snapshot_vm"
+	ActionCloneVM       ActionType = "clone_vm"
 	ActionMigrateVM     ActionType = "migrate_vm"
 	ActionDeleteVM      ActionType = "delete_vm"
 	ActionStorageEdit   ActionType = "storage_edit"
@@ -181,7 +182,7 @@ func (c *APIClient) Execute(req ActionRequest) (ActionResult, error) {
 func requestSpec(req ActionRequest) (method string, endpoint string, params map[string]any, err error) {
 	switch req.Action {
 	case ActionReadVM:
-		node, vmid, err := parseVMTarget(req.Target)
+		node, vmid, err := parseVMTarget(req.Target, req.Params)
 		if err != nil {
 			return "", "", nil, err
 		}
@@ -192,31 +193,37 @@ func requestSpec(req ActionRequest) (method string, endpoint string, params map[
 		}
 		return http.MethodGet, "/api2/json/cluster/resources?type=vm", nil, nil
 	case ActionStartVM:
-		node, vmid, err := parseVMTarget(req.Target)
+		node, vmid, err := parseVMTarget(req.Target, req.Params)
 		if err != nil {
 			return "", "", nil, err
 		}
 		return http.MethodPost, fmt.Sprintf("/api2/json/nodes/%s/qemu/%s/status/start", node, vmid), req.Params, nil
 	case ActionStopVM:
-		node, vmid, err := parseVMTarget(req.Target)
+		node, vmid, err := parseVMTarget(req.Target, req.Params)
 		if err != nil {
 			return "", "", nil, err
 		}
 		return http.MethodPost, fmt.Sprintf("/api2/json/nodes/%s/qemu/%s/status/stop", node, vmid), req.Params, nil
 	case ActionSnapshotVM:
-		node, vmid, err := parseVMTarget(req.Target)
+		node, vmid, err := parseVMTarget(req.Target, req.Params)
 		if err != nil {
 			return "", "", nil, err
 		}
 		return http.MethodPost, fmt.Sprintf("/api2/json/nodes/%s/qemu/%s/snapshot", node, vmid), req.Params, nil
+	case ActionCloneVM:
+		node, vmid, err := parseVMTarget(req.Target, req.Params)
+		if err != nil {
+			return "", "", nil, err
+		}
+		return http.MethodPost, fmt.Sprintf("/api2/json/nodes/%s/qemu/%s/clone", node, vmid), normalizeCloneParams(req.Params), nil
 	case ActionMigrateVM:
-		node, vmid, err := parseVMTarget(req.Target)
+		node, vmid, err := parseVMTarget(req.Target, req.Params)
 		if err != nil {
 			return "", "", nil, err
 		}
 		return http.MethodPost, fmt.Sprintf("/api2/json/nodes/%s/qemu/%s/migrate", node, vmid), req.Params, nil
 	case ActionDeleteVM:
-		node, vmid, err := parseVMTarget(req.Target)
+		node, vmid, err := parseVMTarget(req.Target, req.Params)
 		if err != nil {
 			return "", "", nil, err
 		}
@@ -263,6 +270,25 @@ func filterInventoryByTarget(target string, data any) (any, error) {
 	return filtered, nil
 }
 
+func normalizeCloneParams(params map[string]any) map[string]any {
+	if len(params) == 0 {
+		return params
+	}
+	out := make(map[string]any, len(params))
+	for k, v := range params {
+		out[k] = v
+	}
+	// Proxmox clone API expects full as 0/1 form value.
+	if rawFull, ok := out["full"].(bool); ok {
+		if rawFull {
+			out["full"] = 1
+		} else {
+			out["full"] = 0
+		}
+	}
+	return out
+}
+
 func customEndpointSpec(params map[string]any, defaultMethod string) (endpoint string, method string, body map[string]any, err error) {
 	if params == nil {
 		return "", "", nil, errors.New("params are required for this action")
@@ -289,12 +315,22 @@ func customEndpointSpec(params map[string]any, defaultMethod string) (endpoint s
 	return rawEndpoint, method, body, nil
 }
 
-func parseVMTarget(target string) (node string, vmid string, err error) {
-	parts := strings.Split(strings.TrimSpace(target), "/")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", fmt.Errorf("invalid VM target %q; expected node/vmid", target)
+func parseVMTarget(target string, params map[string]any) (node string, vmid string, err error) {
+	target = strings.TrimSpace(target)
+	parts := strings.Split(target, "/")
+	if len(parts) == 2 && parts[0] == "vm" && parts[1] != "" {
+		vmid = parts[1]
+		rawNode, _ := params["node"].(string)
+		node = strings.TrimSpace(rawNode)
+		if node == "" {
+			return "", "", fmt.Errorf(`missing params.node for target %q`, target)
+		}
+		return node, vmid, nil
 	}
-	return parts[0], parts[1], nil
+	if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+		return parts[0], parts[1], nil
+	}
+	return "", "", fmt.Errorf("invalid VM target %q; expected vm/<id> with params.node or node/vmid", target)
 }
 
 func encodeParams(params map[string]any) io.Reader {

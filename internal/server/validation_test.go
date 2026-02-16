@@ -45,6 +45,14 @@ func TestValidateActionRequest(t *testing.T) {
 			},
 		},
 		{
+			name: "valid clone target",
+			req: proxmox.ActionRequest{
+				Environment: "home",
+				Action:      proxmox.ActionCloneVM,
+				Target:      "vm/103",
+			},
+		},
+		{
 			name: "valid firewall node target",
 			req: proxmox.ActionRequest{
 				Environment: "home",

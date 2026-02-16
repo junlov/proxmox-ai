@@ -37,6 +37,7 @@ func newRequestValidator(cfg config.Config) *requestValidator {
 			proxmox.ActionStartVM:       {},
 			proxmox.ActionStopVM:        {},
 			proxmox.ActionSnapshotVM:    {},
+			proxmox.ActionCloneVM:       {},
 			proxmox.ActionMigrateVM:     {},
 			proxmox.ActionDeleteVM:      {},
 			proxmox.ActionStorageEdit:   {},
@@ -80,6 +81,7 @@ func validateTargetByAction(action proxmox.ActionType, target string) error {
 		proxmox.ActionStartVM,
 		proxmox.ActionStopVM,
 		proxmox.ActionSnapshotVM,
+		proxmox.ActionCloneVM,
 		proxmox.ActionMigrateVM,
 		proxmox.ActionDeleteVM:
 		if !vmTargetPattern.MatchString(target) {

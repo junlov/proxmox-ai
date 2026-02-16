@@ -101,6 +101,36 @@ func TestExecuteStartVMSendsAuthAndEndpoint(t *testing.T) {
 	}
 }
 
+func TestExecuteStartVMSupportsVMTargetWithNodeParam(t *testing.T) {
+	var gotPath string
+	client := newMockClient(t, "super-secret", func(r *http.Request) (*http.Response, error) {
+		gotPath = r.URL.Path
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`{"data":"UPID:node1:0001"}`)),
+			Header:     make(http.Header),
+		}, nil
+	})
+
+	result, err := client.Execute(ActionRequest{
+		Environment: "home",
+		Action:      ActionStartVM,
+		Target:      "vm/101",
+		Params: map[string]any{
+			"node": "node1",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Execute returned error: %v", err)
+	}
+	if gotPath != "/api2/json/nodes/node1/qemu/101/status/start" {
+		t.Fatalf("unexpected path: %q", gotPath)
+	}
+	if result.Message != "UPID:node1:0001" {
+		t.Fatalf("unexpected message: %q", result.Message)
+	}
+}
+
 func TestExecuteReadVMRetriesOnTransientErrors(t *testing.T) {
 	var calls int32
 	client := newMockClient(t, "retry-secret", func(r *http.Request) (*http.Response, error) {
@@ -179,6 +209,55 @@ func TestExecuteReadInventoryReturnsOnlyRunningWhenRequested(t *testing.T) {
 	}
 	if len(items) != 2 {
 		t.Fatalf("expected 2 running resources, got %d", len(items))
+	}
+}
+
+func TestExecuteCloneVMSendsCloneEndpoint(t *testing.T) {
+	var gotPath, gotMethod, gotBody string
+	client := newMockClient(t, "clone-secret", func(r *http.Request) (*http.Response, error) {
+		gotPath = r.URL.Path
+		gotMethod = r.Method
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`{"data":"UPID:node1:9999"}`)),
+			Header:     make(http.Header),
+		}, nil
+	})
+
+	result, err := client.Execute(ActionRequest{
+		Environment: "home",
+		Action:      ActionCloneVM,
+		Target:      "vm/103",
+		Params: map[string]any{
+			"node":     "node1",
+			"newid":    104,
+			"name":     "ubuntu-clone-104",
+			"snapname": "baseline",
+			"full":     false,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Execute returned error: %v", err)
+	}
+	if gotPath != "/api2/json/nodes/node1/qemu/103/clone" {
+		t.Fatalf("unexpected path: %q", gotPath)
+	}
+	if gotMethod != http.MethodPost {
+		t.Fatalf("unexpected method: %q", gotMethod)
+	}
+	if !strings.Contains(gotBody, "newid=104") {
+		t.Fatalf("expected body to include newid, got %q", gotBody)
+	}
+	if !strings.Contains(gotBody, "snapname=baseline") {
+		t.Fatalf("expected body to include snapname, got %q", gotBody)
+	}
+	if !strings.Contains(gotBody, "full=0") {
+		t.Fatalf("expected body to include full=0, got %q", gotBody)
+	}
+	if result.Message != "UPID:node1:9999" {
+		t.Fatalf("unexpected message: %q", result.Message)
 	}
 }
 

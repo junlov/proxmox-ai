@@ -64,6 +64,44 @@ curl -s \
   localhost:8080/v1/actions/apply | jq
 ```
 
+## Clone VM from snapshot (plan then apply)
+
+Create a snapshot on source VM:
+
+```bash
+curl -s \
+  -H "Authorization: Bearer $PROXMOX_AGENT_API_TOKEN" \
+  -H "X-Actor-ID: local-operator" \
+  -H "Content-Type: application/json" \
+  -d '{"environment":"pve","action":"snapshot_vm","target":"vm/103","params":{"node":"pve","snapname":"baseline-20260216"}}' \
+  localhost:8080/v1/actions/plan | jq
+
+curl -s \
+  -H "Authorization: Bearer $PROXMOX_AGENT_API_TOKEN" \
+  -H "X-Actor-ID: local-operator" \
+  -H "Content-Type: application/json" \
+  -d '{"environment":"pve","action":"snapshot_vm","target":"vm/103","params":{"node":"pve","snapname":"baseline-20260216"}}' \
+  localhost:8080/v1/actions/apply | jq
+```
+
+Clone from that snapshot:
+
+```bash
+curl -s \
+  -H "Authorization: Bearer $PROXMOX_AGENT_API_TOKEN" \
+  -H "X-Actor-ID: local-operator" \
+  -H "Content-Type: application/json" \
+  -d '{"environment":"pve","action":"clone_vm","target":"vm/103","params":{"node":"pve","newid":104,"name":"ubuntu-manual-clone-104","snapname":"baseline-20260216","full":0}}' \
+  localhost:8080/v1/actions/plan | jq
+
+curl -s \
+  -H "Authorization: Bearer $PROXMOX_AGENT_API_TOKEN" \
+  -H "X-Actor-ID: local-operator" \
+  -H "Content-Type: application/json" \
+  -d '{"environment":"pve","action":"clone_vm","target":"vm/103","params":{"node":"pve","newid":104,"name":"ubuntu-manual-clone-104","snapname":"baseline-20260216","full":0}}' \
+  localhost:8080/v1/actions/apply | jq
+```
+
 ## API (MVP)
 
 - `GET /healthz`

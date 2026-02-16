@@ -41,7 +41,7 @@ func (e *Engine) evaluate(req proxmox.ActionRequest, enforceApproval bool) (Deci
 		risk = "medium"
 		requiresApproval = true
 		reason = "service-impacting operation"
-	case proxmox.ActionStartVM, proxmox.ActionSnapshotVM:
+	case proxmox.ActionStartVM, proxmox.ActionSnapshotVM, proxmox.ActionCloneVM:
 		risk = "medium"
 		reason = "state-changing operation"
 	}
