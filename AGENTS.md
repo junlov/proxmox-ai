@@ -34,6 +34,13 @@ Build and operate a safe Proxmox control-plane for home and cloud environments.
 - Keep commits small and scoped.
 - Mention relevant issue IDs in commit messages when possible.
 
+## Local skills
+- `proxmox-delivery-loop`: `skills/proxmox-delivery-loop/SKILL.md`
+  - Use when implementing backlog items that must be completed one-by-one with:
+    - local `gofmt` + `go test`
+    - live Proxmox validation
+    - immediate commit/push after each completed task
+
 <!-- bv-agent-instructions-v1 -->
 
 ---

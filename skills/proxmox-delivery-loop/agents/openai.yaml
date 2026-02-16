@@ -1,0 +1,4 @@
+interface:
+  display_name: "Proxmox Delivery Loop"
+  short_description: "Implement one task, test on Proxmox, commit, and push"
+  default_prompt: "Use this skill when iterating on proxmox-agent tasks with mandatory live Proxmox validation and per-task GitHub pushes."
