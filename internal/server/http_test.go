@@ -230,6 +230,33 @@ func TestInventoryReturnsDataAndExecutesReadInventory(t *testing.T) {
 	}
 }
 
+func TestNodesValidatesQueryParams(t *testing.T) {
+	s := newTestServer(&testClient{})
+	req := newAuthedRequest(http.MethodGet, "/v1/nodes", "")
+	rr := httptest.NewRecorder()
+	s.nodes(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for missing environment, got %d", rr.Code)
+	}
+}
+
+func TestNodesExecutesReadNodes(t *testing.T) {
+	client := &testClient{}
+	s := newTestServer(client)
+	req := newAuthedRequest(http.MethodGet, "/v1/nodes?environment=home", "")
+	rr := httptest.NewRecorder()
+	s.nodes(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if client.lastReq.Action != proxmox.ActionReadNodes {
+		t.Fatalf("expected read_nodes action, got %q", client.lastReq.Action)
+	}
+	if client.lastReq.Target != "nodes/all" {
+		t.Fatalf("unexpected target: %q", client.lastReq.Target)
+	}
+}
+
 func TestTaskStatusValidatesQueryParams(t *testing.T) {
 	s := newTestServer(&testClient{})
 

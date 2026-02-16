@@ -106,6 +106,7 @@ curl -s \
 
 - `GET /healthz`
 - `GET /v1/environments`
+- `GET /v1/nodes?environment=<name>`
 - `GET /v1/inventory?environment=<name>&state=<all|running>`
 - `POST /v1/actions/plan`
 - `POST /v1/actions/apply`
@@ -120,6 +121,10 @@ Versioning and deprecation policy: `docs/api-versioning-policy.md`.
 - Action requests are appended to `./data/audit.log`.
 
 See `docs/runtime-contract.md` for the `pi agent` orchestration contract.
+
+## Roadmap
+
+See `docs/roadmap.md` for the control-plane expansion roadmap across provisioning, storage, backup, DR, network, and observability.
 
 ## Task tracking
 

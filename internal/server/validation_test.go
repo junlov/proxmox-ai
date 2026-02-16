@@ -37,6 +37,14 @@ func TestValidateActionRequest(t *testing.T) {
 			},
 		},
 		{
+			name: "valid nodes target",
+			req: proxmox.ActionRequest{
+				Environment: "home",
+				Action:      proxmox.ActionReadNodes,
+				Target:      "nodes/all",
+			},
+		},
+		{
 			name: "valid task status target",
 			req: proxmox.ActionRequest{
 				Environment: "home",

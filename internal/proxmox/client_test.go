@@ -212,6 +212,41 @@ func TestExecuteReadInventoryReturnsOnlyRunningWhenRequested(t *testing.T) {
 	}
 }
 
+func TestExecuteReadNodesUsesClusterResources(t *testing.T) {
+	var gotPath, gotMethod, gotQuery string
+	client := newMockClient(t, "nodes-secret", func(r *http.Request) (*http.Response, error) {
+		gotPath = r.URL.Path
+		gotMethod = r.Method
+		gotQuery = r.URL.RawQuery
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`{"data":[{"node":"pve","status":"online"}]}`)),
+			Header:     make(http.Header),
+		}, nil
+	})
+
+	result, err := client.Execute(ActionRequest{
+		Environment: "home",
+		Action:      ActionReadNodes,
+		Target:      "nodes/all",
+	})
+	if err != nil {
+		t.Fatalf("Execute returned error: %v", err)
+	}
+	if gotMethod != http.MethodGet {
+		t.Fatalf("unexpected method: %q", gotMethod)
+	}
+	if gotPath != "/api2/json/cluster/resources" {
+		t.Fatalf("unexpected path: %q", gotPath)
+	}
+	if gotQuery != "type=node" {
+		t.Fatalf("unexpected query: %q", gotQuery)
+	}
+	if result.Status == "" {
+		t.Fatalf("expected status to be set")
+	}
+}
+
 func TestExecuteCloneVMSendsCloneEndpoint(t *testing.T) {
 	var gotPath, gotMethod, gotBody string
 	client := newMockClient(t, "clone-secret", func(r *http.Request) (*http.Response, error) {
