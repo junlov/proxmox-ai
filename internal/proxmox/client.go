@@ -3,6 +3,7 @@ package proxmox
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -102,25 +103,55 @@ func NewAPIClient(environments []config.Environment) (*APIClient, error) {
 			tokenSecret: tokenSecret,
 		}
 	}
+	httpClient, err := newHTTPClient(defaultHTTPTimeout)
+	if err != nil {
+		return nil, err
+	}
 	return &APIClient{
 		envs:        envs,
-		httpClient:  newHTTPClient(defaultHTTPTimeout),
+		httpClient:  httpClient,
 		readRetries: defaultReadRetries,
 	}, nil
 }
 
-func newHTTPClient(timeout time.Duration) *http.Client {
+func newHTTPClient(timeout time.Duration) (*http.Client, error) {
+	tlsConfig, err := newTLSConfig()
+	if err != nil {
+		return nil, err
+	}
 	return &http.Client{
 		Timeout: timeout,
 		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			TLSClientConfig: &tls.Config{
-				MinVersion:         tls.VersionTLS12,
-				InsecureSkipVerify: false,
-			},
+			Proxy:             http.ProxyFromEnvironment,
+			TLSClientConfig:   tlsConfig,
 			ForceAttemptHTTP2: true,
 		},
+	}, nil
+}
+
+func newTLSConfig() (*tls.Config, error) {
+	pool, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, fmt.Errorf("load system cert pool: %w", err)
 	}
+	if pool == nil {
+		pool = x509.NewCertPool()
+	}
+	if certPath := strings.TrimSpace(os.Getenv("SSL_CERT_FILE")); certPath != "" {
+		pem, err := os.ReadFile(certPath)
+		if err != nil {
+			return nil, fmt.Errorf("read SSL_CERT_FILE %q: %w", certPath, err)
+		}
+		if ok := pool.AppendCertsFromPEM(pem); !ok {
+			return nil, fmt.Errorf("parse certificates from SSL_CERT_FILE %q", certPath)
+		}
+	}
+
+	return &tls.Config{
+		MinVersion:         tls.VersionTLS12,
+		InsecureSkipVerify: false,
+		RootCAs:            pool,
+	}, nil
 }
 
 func BuildTokenAuthHeader(tokenID, tokenSecret string) string {
